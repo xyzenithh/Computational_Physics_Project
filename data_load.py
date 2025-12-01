@@ -30,3 +30,13 @@ def load_data():
         
     return np.array(data), np.array(flux)
 
+def pmumu(theta23, dm2):
+    
+    E = np.linspace(0, 10, 200) 
+    dE = 10.0 / 200.0                              
+    E_centre = E + dE*0.5                   
+    L = 295                   
+    E = np.array(E_centre)
+    arg = 1.267 * dm2 * L / E
+    prob_mumu = 1 - (np.sin(2*theta23))**2*(np.sin(arg))**2
+    return np.array(prob_mumu)
