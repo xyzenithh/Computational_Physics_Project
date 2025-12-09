@@ -85,3 +85,55 @@ def nll(theta, dm2):
     data, flux = load_data()
     lam = lam_i(theta, dm2)
     return 2.0 * np.sum(lam - data * np.log(lam))
+
+def parabolic(f, x0, x1, x2, tol, max_iter=300):
+    """
+    1D parabolic minimiser 
+
+    f = NLL function for 1 var
+    x0,x1,x2 = initial points
+    tol = convergence critera
+
+    Returns minimum of x and minimum of NLL at x_min
+    """
+    f0 = f(x0)
+    f1 = f(x1)
+    f2 = f(x2)
+
+    for i in range(max_iter):
+        x3 = 0.5*((x2**2 - x1**2) * f0 + (x0**2 - x2**2) * f1 + (x1**2 - x0**2) * f2)/((x2 - x1) * f0 + (x0 - x2) * f1 + (x1 - x0) * f2)
+        f3 = f(x3)
+
+        # check convergence criteria and then input values 
+        if abs(x3 - x1) < tol:
+            x_mins = np.array([x0, x1, x2, x3])
+            f_mins = np.array([f0, f1, f2, f3])
+            min_val = np.argmin(f_mins)
+            return x_mins[min_val], f_mins[min_val]
+
+        # keep best 3 points with most minimised f
+        x_mins = np.array([x0, x1, x2, x3])
+        f_mins = np.array([f0, f1, f2, f3])
+
+        # Sort by x so the bracket stays ordered
+        sort = np.argsort(x_mins)
+        x_mins = x_mins[sort]
+        f_mins = f_mins[sort]
+
+        # replace initial guesses with newly minimised approximations
+        x0, x1, x2 = x_mins[0], x_mins[1], x_mins[2]
+        f0, f1, f2 = f_mins[0], f_mins[1], f_mins[2]
+
+    # if not converged at max iterations then just return best value
+    x_mins = np.array([x0, x1, x2])
+    f_mins = np.array([f0, f1, f2])
+    min_val = np.argmin(f_mins)
+    return x_mins[min_val], f_mins[min_val]
+
+def nll_dm2(dm2):
+    theta_approx = 0.6751499971144296
+    return nll(theta_approx, dm2)
+
+def nll_theta(theta):
+    dm2_approx = 0.0024473468435815774
+    return nll(theta, dm2_approx)
