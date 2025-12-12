@@ -137,3 +137,68 @@ def nll_dm2(dm2):
 def nll_theta(theta):
     dm2_approx = 0.0024473468435815774
     return nll(theta, dm2_approx)
+
+def deltaNLL(f, range_min, range_max, points=1000):
+    """
+    f = NLL
+    range_min/max = scan range
+    points =  number of grid points
+
+
+    returns minimum parameter, alongside values where deltaNLL = +-1, and the associated errors
+    """
+
+    # range for scanning
+    param_range = np.linspace(range_min, range_max, points)
+    param_vals = np.array([f(x) for x in param_range])
+    # minimum
+    index_min = np.argmin(param_vals)
+    param_min = param_range[index_min]
+    nll_min  = param_vals[index_min]
+    target = nll_min + 1.0  
+
+    # upward scan
+    i = index_min
+    while i < points and param_vals[i] < target:
+        i += 1
+    if i == points:
+        x_plus = param_range[-1]
+    else:
+        x1, y1 = param_range[i-1], param_vals[i-1]
+        x2, y2 = param_range[i],   param_vals[i]
+        x_plus = x1 + (target - y1) / (y2 - y1) * (x2 - x1)
+    print(f'NLL upwards scan value:{param_vals[i]}')
+    # downward scan
+    i = index_min
+    while i >= 0 and param_vals[i] < target:
+        i -= 1
+
+    if i < 0:
+        x_minus = param_range[0]
+    else:
+        x1, y1 = param_range[i+1], param_vals[i+1]
+        x2, y2 = param_range[i],   param_vals[i]
+        x_minus = x1 + (target - y1) / (y2 - y1) * (x2 - x1)
+
+    print(f'NLL downwards scan value:{param_vals[i]}')
+    err_plus  = x_plus  - param_min
+    err_minus = param_min  - x_minus
+
+    return param_min, x_minus, x_plus, err_minus, err_plus
+
+def curv_method(f, min, step_size = 1e-3):
+    """ 
+    Calculating second derivative to then calculate sigma of the given function
+
+    f = NLL function for 1 variable
+    min = minimum value of parameter for given function
+
+    Returns sigma
+    """
+
+    f0 = f(min - step_size)
+    f1 = f(min)
+    f2 = f(min + step_size)
+
+    deriv2 = (f2 - 2 * f1 + f0)/step_size**2
+    return np.sqrt(2/deriv2)
