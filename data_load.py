@@ -54,7 +54,7 @@ def pmumu(theta, dm2):
     dm2 = (change in mass of neutrino)^2 in eV^2
     E_centres = middle of energy bin,  used here to avoid any issues when encountering a 0
     """
-    E = np.linspace(0, 10, 200) 
+    E = np.linspace(0, 10, 200, endpoint = False) 
     dE = 10.0 / 200.0                              
     E_centre = E + dE*0.5                   
     L = 295                   
@@ -72,6 +72,7 @@ def lam_i(theta, dm2):
     
     data, flux = load_data()
     prob = pmumu(theta, dm2)
+    
     return flux * prob
 
 def nll(theta, dm2):
@@ -94,48 +95,75 @@ def parabolic(f, x0, x1, x2, tol, max_iter=300):
     x0,x1,x2 = initial points
     tol = convergence critera
 
-    Returns minimum of x and minimum of NLL at x_min
+    Returns minimum of x and minimum of NLL at dm2_min
     """
     f0 = f(x0)
     f1 = f(x1)
     f2 = f(x2)
 
+    x3_vals = []
+    f3_vals = []
+
+    # best so far
+    x_best = x1
+    f_best = f1
+
+    # loop through iterations, break if denominator is too small/0, append trial vals for plotting
     for i in range(max_iter):
-        x3 = 0.5*((x2**2 - x1**2) * f0 + (x0**2 - x2**2) * f1 + (x1**2 - x0**2) * f2)/((x2 - x1) * f0 + (x0 - x2) * f1 + (x1 - x0) * f2)
+        denom = (x2 - x1) * f0 + (x0 - x2) * f1 + (x1 - x0) * f2
+        if np.abs(denom) < 1e-14:
+            break
+
+        x3 = 0.5 * ((x2**2 - x1**2) * f0+ (x0**2 - x2**2) * f1+ (x1**2 - x0**2) * f2 ) / denom
+
+        # keep x3 inside the current bracket to avoid wild jumps
+        x_lo = np.min([x0, x1, x2])
+        x_hi = np.max([x0, x1, x2])
+        if (not np.isfinite(x3)) or (x3 <= x_lo) or (x3 >= x_hi):
+            x3 = 0.5 * (x_lo + x_hi)
+
         f3 = f(x3)
+        x3_vals.append(x3)
+        f3_vals.append(f3)
 
-        # check convergence criteria and then input values 
-        if abs(x3 - x1) < tol:
-            x_mins = np.array([x0, x1, x2, x3])
-            f_mins = np.array([f0, f1, f2, f3])
-            min_val = np.argmin(f_mins)
-            return x_mins[min_val], f_mins[min_val]
+        # update best value 
+        if f3 < f_best:
+            f_best = f3
+            x_best = x3
 
-        # keep best 3 points with most minimised f
-        x_mins = np.array([x0, x1, x2, x3])
-        f_mins = np.array([f0, f1, f2, f3])
+        # convergence criteria check (stop when x3 stops moving)
+        if len(x3_vals) > 1 and np.abs(x3_vals[-1] - x3_vals[-2]) < tol:
+            break
 
-        # Sort by x so the bracket stays ordered
-        sort = np.argsort(x_mins)
-        x_mins = x_mins[sort]
-        f_mins = f_mins[sort]
+        # store values
+        x_all = np.array([x0, x1, x2, x3])
+        f_all = np.array([f0, f1, f2, f3])
 
-        # replace initial guesses with newly minimised approximations
-        x0, x1, x2 = x_mins[0], x_mins[1], x_mins[2]
-        f0, f1, f2 = f_mins[0], f_mins[1], f_mins[2]
+        # keep best 3 points by NLL, then sort by x so the bracket stays ordered
+        keep = np.argsort(f_all)[:3]
+        x_keep = x_all[keep]
+        f_keep = f_all[keep]
 
-    # if not converged at max iterations then just return best value
-    x_mins = np.array([x0, x1, x2])
-    f_mins = np.array([f0, f1, f2])
-    min_val = np.argmin(f_mins)
-    return x_mins[min_val], f_mins[min_val]
+        order = np.argsort(x_keep)
+        x0, x1, x2 = x_keep[order]
+        f0, f1, f2 = f_keep[order]
+
+    # if no appends anything, return best of the initial three points
+    if len(x3_vals) == 0:
+        x_init = np.array([x0, x1, x2])
+        f_init = np.array([f0, f1, f2])
+        j = np.argmin(f_init)
+        return x_init[j], f_init[j], np.array(x3_vals), np.array(f3_vals)
+
+    return x_best, f_best, np.array(x3_vals), np.array(f3_vals)
 
 def nll_dm2(dm2):
-    theta_approx = 0.6751499971144296
+
+    theta_approx = 0.6759913232677012
     return nll(theta_approx, dm2)
 
 def nll_theta(theta):
-    dm2_approx = 0.0024473468435815774
+    dm2_approx = 0.002490764417552603
     return nll(theta, dm2_approx)
 
 def deltaNLL(f, range_min, range_max, points=1000):
